@@ -1,0 +1,92 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "KRA TIMS Setup",
+ "creation": "2024-07-09 16:03:22.961910",
+ "default_view": "List",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "end_point_settings_section",
+  "url",
+  "column_break_ghvn",
+  "port_number",
+  "column_break_armv",
+  "status",
+  "additional_settings_section",
+  "use_system_naming_series_as_rct_no",
+  "allow_other_day_posting"
+ ],
+ "fields": [
+  {
+   "fieldname": "end_point_settings_section",
+   "fieldtype": "Section Break",
+   "label": "End Point Settings"
+  },
+  {
+   "fieldname": "url",
+   "fieldtype": "Data",
+   "label": "URL"
+  },
+  {
+   "fieldname": "column_break_ghvn",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "port_number",
+   "fieldtype": "Data",
+   "label": "Port Number"
+  },
+  {
+   "fieldname": "column_break_armv",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "label": "Status",
+   "options": "Inactive\nActive"
+  },
+  {
+   "fieldname": "additional_settings_section",
+   "fieldtype": "Section Break",
+   "label": "Additional Settings"
+  },
+  {
+   "default": "0",
+   "fieldname": "use_system_naming_series_as_rct_no",
+   "fieldtype": "Check",
+   "label": "Use System Naming Series as RCT No"
+  },
+  {
+   "default": "0",
+   "fieldname": "allow_other_day_posting",
+   "fieldtype": "Check",
+   "label": "Allow Other Day Posting"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "issingle": 1,
+ "links": [],
+ "modified": "2024-07-17 06:24:42.962369",
+ "modified_by": "Administrator",
+ "module": "AQIQ TIMS Integration",
+ "name": "TIMS Setup",
+ "naming_rule": "Expression (old style)",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "print": 1,
+   "read": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}
