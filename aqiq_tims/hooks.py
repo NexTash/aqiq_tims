@@ -239,6 +239,10 @@ fixtures = [
     "filters": [
         ["name", "in", ["Sales Invoice"]]
     ]
-}
+},
+{
+        "dt": "DocType",
+        "filters": [["name", "in", ["KRA Response", "TIMS Setup"]]]
+    }
 ]
 
