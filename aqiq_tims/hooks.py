@@ -243,6 +243,7 @@ fixtures = [
 {
         "dt": "DocType",
         "filters": [["name", "in", ["KRA Response", "TIMS Setup"]]]
+    
     }
 ]
 
