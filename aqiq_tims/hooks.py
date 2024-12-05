@@ -122,13 +122,11 @@ app_license = "mit"
 # ---------------
 # Hook on document methods and events
 
-# doc_events = {
-# 	"*": {
-# 		"on_update": "method",
-# 		"on_cancel": "method",
-# 		"on_trash": "method"
-# 	}
-# }
+doc_events = {
+    "Sales Invoice": {
+        "on_submit": "aqiq_tims.api.sales_invoice_on_submit"
+    }
+}
 
 # Scheduled Tasks
 # ---------------
@@ -136,19 +134,19 @@ app_license = "mit"
 # scheduler_events = {
 # 	"all": [
 # 		"aqiq_tims.tasks.all"
-# 	],
+# 		],
 # 	"daily": [
 # 		"aqiq_tims.tasks.daily"
-# 	],
+# 		],
 # 	"hourly": [
 # 		"aqiq_tims.tasks.hourly"
-# 	],
+# 		],
 # 	"weekly": [
 # 		"aqiq_tims.tasks.weekly"
-# 	],
+# 		],
 # 	"monthly": [
 # 		"aqiq_tims.tasks.monthly"
-# 	],
+# 		],
 # }
 
 # Testing
@@ -228,22 +226,31 @@ app_license = "mit"
 # }
 
 fixtures = [
-{
-    "dt": "Client Script",
-    "filters": [
-        ["name", "in", ["Sales Invoice"]]
-    ]
-},
-{
-    "dt": "Custom Field",
-    "filters": [
-        ["name", "in", ["Sales Invoice"]]
-    ]
-},
-{
+    {
+        "dt": "Custom Field",
+        "filters": [
+            ["name", "like", "Sales Invoice-custom_%"]
+        ]
+    },
+    {
+        "dt": "Property Setter",
+        "filters": [
+            ["doc_type", "=", "Sales Invoice"]
+        ]
+    },
+    {
         "dt": "DocType",
-        "filters": [["name", "in", ["KRA Response", "TIMS Setup"]]]
-    
+        "filters": [
+            ["name", "in", ["KRA Response", "TIMS Device Setup"]]
+        ]
     }
 ]
+
+app_include_js = [
+    "/assets/aqiq_tims/js/sales_invoice.js"
+]
+
+doctype_js = {
+    "Sales Invoice": "public/js/sales_invoice.js"
+}
 

@@ -5,5 +5,5 @@
 from frappe.tests.utils import FrappeTestCase
 
 
-class TestTIMSSetup(FrappeTestCase):
+class TestTIMSDeviceSetup(FrappeTestCase):
 	pass

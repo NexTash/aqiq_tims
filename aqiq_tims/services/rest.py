@@ -7,12 +7,12 @@ from datetime import datetime
 @frappe.whitelist()
 def send_request(invoice):
     try:
-        kra_setup = frappe.get_doc('TIMS Setup', 'TIMS Setup')
+        device_setup = frappe.get_single('TIMS Device Setup')
         doc = frappe.get_doc("Sales Invoice", invoice)
 
-        if kra_setup.status == 'Active':
-            if is_valid_posting_date(doc, kra_setup):
-                payload = build_payload(doc, kra_setup)
+        if device_setup.status == 'Active':
+            if is_valid_posting_date(doc, device_setup):
+                payload = build_payload(doc, device_setup)
                 send_payload(payload, invoice, doc)
             else:
                 frappe.msgprint(
@@ -22,7 +22,7 @@ def send_request(invoice):
                 )
         else:
             frappe.msgprint(
-                msg='KRA TIMS Setup for Sending Invoices to KRA is not Active.',
+                msg='TIMS Device Setup for Sending Invoices is not Active.',
                 title='Error Message',
                 indicator='red',
             )
@@ -30,13 +30,13 @@ def send_request(invoice):
         handle_exception(e)
 
 
-def is_valid_posting_date(doc, kra_setup):
+def is_valid_posting_date(doc, device_setup):
     today = datetime.now().strftime("%d-%m-%Y")
     posting_date = doc.posting_date.strftime("%d-%m-%Y")
-    return posting_date == today or kra_setup.allow_other_day_posting
+    return posting_date == today or device_setup.allow_other_day_posting
 
 
-def build_payload(doc, kra_setup):
+def build_payload(doc, device_setup):
     payment_method = "Cash" if doc.status == 'Paid' else 'Credit'
     till_no = ''
     rct_no = doc.name
@@ -93,27 +93,47 @@ def initialize_vat_values():
 
 
 def calculate_tax(item, tax_category):
-    tax_rate = item.tax_rate
+    tax_rate = float(item.tax_rate or 0)
     tax_value = 1 + (tax_rate / 100)
-    qty = 1.0
-    base_net_rate = abs(item.base_net_amount)
+    
+    qty = float(item.qty or 1.0)
+    
+    base_net_rate = float(item.base_net_rate or 0)
 
-    unit_price = round(base_net_rate * tax_value * qty, 2)
+    unit_price = round(base_net_rate, 2)
     discount = 0.0
+    
+    hs_code = get_hs_code(item.title)
 
     new_item = {
         "productCode": item.item_code,
         "productDesc": item.item_name,
-        "quantity": abs(qty),
-        "unitPrice": abs(unit_price),
-        "discount": abs(discount),
-        "taxtype": int(tax_rate)
+        "quantity": abs(float(qty)),
+        "unitPrice": abs(float(unit_price)),
+        "discount": abs(float(discount)),
+        "taxtype": int(tax_rate),
+        "hsCode": hs_code
     }
 
-    taxable_amount = (unit_price * qty - discount) / tax_value
+    if tax_category == "Inclusive":
+        taxable_amount = (unit_price * qty - discount) / tax_value
+    else:
+        taxable_amount = unit_price * qty - discount
+        
     tax_amount = taxable_amount * (tax_rate / 100)
 
     return new_item, taxable_amount, tax_amount
+
+
+def get_hs_code(tax_type):
+    """
+    Returns the appropriate HS code based on tax type
+    """
+    if tax_type == "Exempt":
+        return "0043.11.00"
+    elif tax_type == "Zero Rated":
+        return "0022.10.00"
+    return ""  # Return empty string for other tax types
 
 
 def update_vat_values(vat_values, tax_type, taxable_amount, tax_amount):
@@ -140,7 +160,15 @@ def update_vat_values(vat_values, tax_type, taxable_amount, tax_amount):
 
 
 def create_payload(doc, vat_values, items, payment_method, customer_pin, till_no, rct_no):
-    total = sum(vat_values.values())
+    total = sum([
+        vat_values["VAT_A_NET"] + vat_values["VAT_A"],
+        vat_values["VAT_B_NET"] + vat_values["VAT_B"],
+        vat_values["VAT_C_NET"] + vat_values["VAT_C"],
+        vat_values["VAT_D_NET"] + vat_values["VAT_D"],
+        vat_values["VAT_E_NET"],
+        vat_values["VAT_F_NET"]
+    ])
+
     payload_type = "sales" if not doc.is_return else "refund"
     cuin = "" if not doc.is_return else frappe.db.get_value("KRA Response", {"invoice_number": doc.name}, "cuin")
 
@@ -149,22 +177,22 @@ def create_payload(doc, vat_values, items, payment_method, customer_pin, till_no
         "cuin": cuin,
         "till": till_no,
         "rctNo": rct_no,
-        "total": total,
-        "Paid": total,
+        "total": round(float(total), 2),
+        "Paid": round(float(total), 2),
         "Payment": payment_method,
         "CustomerPIN": customer_pin,
-        "VAT_A_Net": vat_values["VAT_A_NET"],
-        "VAT_A": vat_values["VAT_A"],
-        "VAT_B_Net": vat_values["VAT_B_NET"],
-        "VAT_B": vat_values["VAT_B"],
-        "VAT_C_Net": vat_values["VAT_C_NET"],
-        "VAT_C": vat_values["VAT_C"],
-        "VAT_D_Net": vat_values["VAT_D_NET"],
-        "VAT_D": vat_values["VAT_D"],
-        "VAT_E_Net": vat_values["VAT_E_NET"],
-        "VAT_E": vat_values["VAT_E"],
-        "VAT_F_Net": vat_values["VAT_F_NET"],
-        "VAT_F": vat_values["VAT_F"],
+        "VAT_A_Net": round(float(vat_values["VAT_A_NET"]), 2),
+        "VAT_A": round(float(vat_values["VAT_A"]), 2),
+        "VAT_B_Net": round(float(vat_values["VAT_B_NET"]), 2),
+        "VAT_B": round(float(vat_values["VAT_B"]), 2),
+        "VAT_C_Net": round(float(vat_values["VAT_C_NET"]), 2),
+        "VAT_C": round(float(vat_values["VAT_C"]), 2),
+        "VAT_D_Net": round(float(vat_values["VAT_D_NET"]), 2),
+        "VAT_D": round(float(vat_values["VAT_D"]), 2),
+        "VAT_E_Net": round(float(vat_values["VAT_E_NET"]), 2),
+        "VAT_E": round(float(vat_values["VAT_E"]), 2),
+        "VAT_F_Net": round(float(vat_values["VAT_F_NET"]), 2),
+        "VAT_F": round(float(vat_values["VAT_F"]), 2),
         "data": items
     }
 
@@ -173,8 +201,12 @@ def create_payload(doc, vat_values, items, payment_method, customer_pin, till_no
 
 def send_payload(payload, invoice, doc):
     try:
-        port, url = frappe.db.get_value('KRA TIMS Setup', 'KRA TIMS Setup', ['url', 'port_number'])
-        response = requests.post(f"http://{url}:{port}/api/values/PostTims", json=payload, timeout=60)
+        device_setup = frappe.get_single('TIMS Device Setup')
+        response = requests.post(
+            f"http://{device_setup.ip}:{device_setup.port}/api/values/PostTims",
+            json=payload,
+            timeout=60
+        )
         handle_response(response, invoice, doc, payload)
     except Exception as e:
         frappe.msgprint(
@@ -204,8 +236,7 @@ def handle_response(response, invoice, doc, payload):
     frappe.db.commit()
 
     if data['ResponseCode'] == '000':
-        qr_code_path = generate_qr_code(data["QRCode"], doc.doctype, doc.name)
-        update_doc_with_response(doc, data, qr_code_path)
+        update_doc_with_response(doc, data)
     else:
         frappe.msgprint(
             msg="Invoice Submission to KRA Failed. Please Check KRA Response Generated.",
@@ -214,12 +245,12 @@ def handle_response(response, invoice, doc, payload):
         )
 
 
-def update_doc_with_response(doc, data, qr_code_path):
+def update_doc_with_response(doc, data):
     doc.custom_tims_code = data["ResponseCode"]
     doc.custom_tsin = data["TSIN"]
     doc.custom_cusn = data["CUSN"]
     doc.custom__cuin = data["CUIN"]
-    doc.custom_kra_qr_code = qr_code_path
+    doc.custom_kra_qr_code = data["QRCode"]
     doc.custom_signing_time = data["dtStmp"]
     doc.custom_sent_to_kra = 1
     doc.save(ignore_permissions=True)
@@ -238,42 +269,3 @@ def handle_exception(exception):
         indicator='red',
     )
     return exception
-
-
-def get_qr_code(doc):
-    qr_code = frappe.db.get_value("QR Demo", {'invoice_number': doc.name}, ['qr_code'])
-    tin, cusn, cuin, qr_code_url, signing_date = frappe.db.get_value(
-        "KRA Response", {"invoice_number": doc.name}, 
-        ["tin", "cusn", "cuin", "qr_code", "signing_time"])
-    
-    return {
-        "qr_code": qr_code,
-        "tin": doc.custom_tsin,
-        "cusn": doc.custom_cusn,
-        "cuin": doc.custom__cuin,
-        "qr_code_url": doc.custom_kra_qr_code,
-        "signing_date": doc.custom_signing_time
-    }
-
-
-def generate_qr_code(url, doctype, name, custom_info=None):
-    from pathlib import Path
-    import shutil
-    import pyqrcode
-
-    try:
-        qr = pyqrcode.create(url)
-        name_to_be = "KRA-QRCode-" + name.replace("/", "").replace("\\", "") + ".svg"
-        qr.svg(name_to_be, scale=2)
-        
-        path_to_sites_dir = "/home/frappe/bench-impala/sites/"
-        site = frappe.db.get_value("Impala Settings", "Impala Settings", "site")
-        shutil.move(
-            path_to_sites_dir + name_to_be,
-            path_to_sites_dir + site + "/public/files/" + name_to_be,
-        )
-        return "/files/" + name_to_be
-    except Exception as e:
-        error_message = frappe.get_traceback() + "Error \n" + str(e)
-        frappe.log_error(error_message, "QR Code Error")
-        return None
