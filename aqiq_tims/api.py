@@ -7,7 +7,7 @@ def sales_invoice_on_submit(doc, method):
     # Get TIMS settings
     tims_settings = frappe.get_single('TIMS Device Setup')
     
-    if not tims_settings.send_invoices_on_submit:
+    if not tims_settings.send_invoices_to_kra_on_submit:
         return
         
     if doc.is_return and not tims_settings.send_credit_notes:
