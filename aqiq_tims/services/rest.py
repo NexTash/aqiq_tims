@@ -118,7 +118,7 @@ def calculate_tax(item, tax_category):
         "unitPrice": abs(float(unit_price)),
         "discount": abs(float(discount)),
         "taxtype": int(tax_rate),
-        "hsCode": hs_code
+        # "hsCode": hs_code
     }
 
     if tax_category == "Inclusive":
