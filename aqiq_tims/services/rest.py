@@ -253,7 +253,6 @@ def handle_response(response, invoice, doc, payload):
 
 
 def update_doc_with_response(doc, data):
-    frappe.throw(f'{data}')
     doc.custom_tims_code = data["ResponseCode"]
     doc.custom_tsin = data["TSIN"]
     doc.custom_cusn = data["CUSN"]
