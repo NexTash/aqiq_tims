@@ -104,9 +104,15 @@ def calculate_tax(item, tax_category):
     discount = 0.0
     
     hs_code = get_hs_code(item.title)
+    if hs_code == "0043.11.00":
+        product_code = "0043.11.00"
+    elif hs_code == "0022.10.00":
+        product_code = "0022.10.00"
+    else:
+        product_code = item.item_code
 
     new_item = {
-        "productCode": item.item_code,
+        "productCode": product_code,
         "productDesc": item.item_name,
         "quantity": abs(float(qty)),
         "unitPrice": abs(float(unit_price)),
@@ -129,6 +135,7 @@ def get_hs_code(tax_type):
     """
     Returns the appropriate HS code based on tax type
     """
+    # frappe.throw(f"{tax_type}")
     if tax_type == "Exempt":
         return "0043.11.00"
     elif tax_type == "Zero Rated":
@@ -170,29 +177,29 @@ def create_payload(doc, vat_values, items, payment_method, customer_pin, till_no
     ])
 
     payload_type = "sales" if not doc.is_return else "refund"
-    cuin = "" if not doc.is_return else frappe.db.get_value("KRA Response", {"invoice_number": doc.name}, "cuin")
+    cuin = "" if not doc.is_return else frappe.db.get_value("KRA Response", {"invoice_number": doc.return_against}, "cuin")
 
     payload = {
         "saleType": payload_type,
         "cuin": cuin,
         "till": till_no,
         "rctNo": rct_no,
-        "total": round(float(total), 2),
-        "Paid": round(float(total), 2),
+        "total": round(abs(float(total)), 2),
+        "Paid": round(abs(float(total)), 2),
         "Payment": payment_method,
         "CustomerPIN": customer_pin,
-        "VAT_A_Net": round(float(vat_values["VAT_A_NET"]), 2),
-        "VAT_A": round(float(vat_values["VAT_A"]), 2),
-        "VAT_B_Net": round(float(vat_values["VAT_B_NET"]), 2),
-        "VAT_B": round(float(vat_values["VAT_B"]), 2),
-        "VAT_C_Net": round(float(vat_values["VAT_C_NET"]), 2),
-        "VAT_C": round(float(vat_values["VAT_C"]), 2),
-        "VAT_D_Net": round(float(vat_values["VAT_D_NET"]), 2),
-        "VAT_D": round(float(vat_values["VAT_D"]), 2),
-        "VAT_E_Net": round(float(vat_values["VAT_E_NET"]), 2),
-        "VAT_E": round(float(vat_values["VAT_E"]), 2),
-        "VAT_F_Net": round(float(vat_values["VAT_F_NET"]), 2),
-        "VAT_F": round(float(vat_values["VAT_F"]), 2),
+        "VAT_A_Net": round(abs(float(vat_values["VAT_A_NET"])), 2),
+        "VAT_A": round(abs(float(vat_values["VAT_A"])), 2),
+        "VAT_B_Net": round(abs(float(vat_values["VAT_B_NET"])), 2),
+        "VAT_B": round(abs(float(vat_values["VAT_B"])), 2),
+        "VAT_C_Net": round(abs(float(vat_values["VAT_C_NET"])), 2),
+        "VAT_C": round(abs(float(vat_values["VAT_C"])), 2),
+        "VAT_D_Net": round(abs(float(vat_values["VAT_D_NET"])), 2),
+        "VAT_D": round(abs(float(vat_values["VAT_D"])), 2),
+        "VAT_E_Net": round(abs(float(vat_values["VAT_E_NET"])), 2),
+        "VAT_E": round(abs(float(vat_values["VAT_E"])), 2),
+        "VAT_F_Net": round(abs(float(vat_values["VAT_F_NET"])), 2),
+        "VAT_F": round(abs(float(vat_values["VAT_F"])), 2),
         "data": items
     }
 
