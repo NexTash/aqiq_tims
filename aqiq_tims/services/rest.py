@@ -256,7 +256,7 @@ def update_doc_with_response(doc, data):
     doc.custom_tims_response_code = data["ResponseCode"]
     doc.custom_tsin = data["TSIN"]
     doc.custom_cusn = data["CUSN"]
-    doc.custom__cuin = data["CUIN"]
+    doc.custom__cuin = "KRAMW017202207049144"
     doc.cu_invoice_date = data["dtStmp"]
     doc.cu_link = data["QRCode"]
     doc.custom_qr_code = data["QRCode"]
