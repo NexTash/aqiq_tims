@@ -106,8 +106,8 @@ def calculate_tax(item, tax_category):
     hs_code = get_hs_code(item.title)
     if hs_code == "0043.11.00":
         product_code = "0043.11.00"
-    elif hs_code == "0022.10.00":
-        product_code = "0022.10.00"
+    elif hs_code == "0022.12.00":
+        product_code = "0022.12.00"
     else:
         product_code = item.item_code
 
@@ -139,7 +139,7 @@ def get_hs_code(tax_type):
     if tax_type == "Exempt":
         return "0043.11.00"
     elif tax_type == "Zero Rated":
-        return "0022.10.00"
+        return "0022.12.00"
     return ""  # Return empty string for other tax types
 
 
