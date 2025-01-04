@@ -267,9 +267,9 @@ def update_doc_with_response(doc, data):
     doc.custom_sent_to_kra = 1
     doc.save(ignore_permissions=True)
 
-    if doc.docstatus == 0:
-        doc.submit()
-        doc.reload()
+    doc.submit()
+    doc.reload()
+    # if doc.docstatus == 0:
 
 
 def handle_exception(exception):

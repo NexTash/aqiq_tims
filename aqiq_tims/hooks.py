@@ -246,10 +246,6 @@ fixtures = [
     }
 ]
 
-app_include_js = [
-    "/assets/aqiq_tims/js/sales_invoice.js"
-]
-
 doctype_js = {
     "Sales Invoice": "public/js/sales_invoice.js"
 }

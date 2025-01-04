@@ -1,14 +1,14 @@
 frappe.ui.form.on('Sales Invoice', {
     refresh: function(frm) {
         // Only show button if invoice is submitted and not already sent to KRA
-        setTimeout(() => {
+        // setTimeout(() => {
             
             if (frm.doc.docstatus === 1 && !frm.doc.custom_sent_to_kra) {
-                frm.add_custom_button(__('Send to TIMS'), function() {
+                frm.add_custom_button('Send to TIMS', () => {
                     send_to_tims(frm);
-                }, __('TIMS'));
+                })
             }
-        }, 1000);
+        // }, 1000);
 
         // Show TIMS status in the dashboard
         if (frm.doc.custom_sent_to_kra) {
@@ -25,6 +25,14 @@ frappe.ui.form.on('Sales Invoice', {
             // Show TIMS details section
             show_tims_details(frm);
         }
+    },
+    on_submit(frm){
+        frappe.db.get_value('TIMS Device Setup', 'TIMS Device Setup', 'send_invoices_to_kra_on_submit')
+            .then(r => {
+            if(r.message.send_invoices_to_kra_on_submit){
+                frm.reload_doc();
+            }
+        })
     }
 });
 
