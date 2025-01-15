@@ -15,6 +15,7 @@
   "use_system_naming_series_as_rct_no",
   "send_invoices_to_kra_on_submit",
   "column_break_dbpn",
+  "send_credit_notes",
   "allow_other_day_posting"
  ],
  "fields": [
@@ -80,13 +81,19 @@
    "fieldname": "send_invoices_to_kra_on_submit",
    "fieldtype": "Check",
    "label": "Send Invoices To KRA On Submit"
+  },
+  {
+   "default": "0",
+   "fieldname": "send_credit_notes",
+   "fieldtype": "Check",
+   "label": "Send Credit Notes"
   }
  ],
  "hide_toolbar": 1,
  "index_web_pages_for_search": 1,
  "issingle": 1,
  "links": [],
- "modified": "2024-12-05 16:26:49.832156",
+ "modified": "2025-01-15 11:24:54.074528",
  "modified_by": "Administrator",
  "module": "AQIQ TIMS Integration",
  "name": "TIMS Device Setup",
