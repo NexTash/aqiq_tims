@@ -124,11 +124,9 @@ app_license = "mit"
 
 doc_events = {
     "Sales Invoice": {
+        "before_save": "aqiq_tims.api.sales_invoice_is_return",
         "on_submit": "aqiq_tims.api.sales_invoice_on_submit"
     },
-    "Sales Invoice": {
-        "after_insert": "aqiq_tims.api.sales_invoice_is_return"
-    }
 }
 
 # Scheduled Tasks
