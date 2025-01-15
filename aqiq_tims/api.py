@@ -10,8 +10,8 @@ def sales_invoice_on_submit(doc, method):
     if not tims_settings.send_invoices_to_kra_on_submit:
         return
         
-    # if doc.is_return and not tims_settings.send_credit_notes:
-    #     return
+    if doc.is_return and not tims_settings.send_credit_notes:
+        return
         
     # Don't send if already sent
     if doc.custom_sent_to_kra:

@@ -3,7 +3,7 @@ frappe.ui.form.on('Sales Invoice', {
         // Only show button if invoice is submitted and not already sent to KRA
         // setTimeout(() => {
             
-            if (frm.doc.docstatus === 0 && !frm.doc.custom_sent_to_kra) {
+            if (frm.doc.docstatus === 1 && !frm.doc.custom_sent_to_kra) {
                 frm.add_custom_button('Send to TIMS', () => {
                     send_to_tims(frm);
                 })
