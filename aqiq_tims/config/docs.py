@@ -1,11 +1,11 @@
 """
-Configuration for AQIQ TIMS documentation
+Configuration for docs
 """
 
-# source_link = "https://github.com/ronoh/aqiq_tims"
-# docs_base_url = "https://ronoh.github.io/aqiq_tims"
-# headline = "AQIQ TIMS Integration"
-# sub_heading = "KRA TIMS integration for ERPNext"
+# source_link = "https://github.com/[org_name]/aqiqs_tims"
+# docs_base_url = "https://[org_name].github.io/aqiqs_tims"
+# headline = "App that does everything"
+# sub_heading = "Yes, you got that right the first time, everything"
 
 def get_context(context):
-    context.brand_html = "AQIQ TIMS"
+	context.brand_html = "Aqiq Tims"

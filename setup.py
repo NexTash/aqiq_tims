@@ -7,13 +7,15 @@ with open("requirements.txt") as f:
 from aqiq_tims import __version__ as version
 
 setup(
-    name="aqiq_tims",
-    version=version,
-    description="KRA TIMS Integration for ERPNext",
-    author="RONOH",
-    author_email="ronoelisha625@gmail.com",
-    packages=find_packages(),
-    zip_safe=False,
-    include_package_data=True,
-    install_requires=[]
+	name="aqiq_tims",
+	version=version,
+	description="KRA TIMS Integration for ERPNext",
+	author="RONOH",
+	author_email="ronoelisha625@gmail.com",
+	packages=find_packages(),
+	zip_safe=False,
+	include_package_data=True,
+	install_requires=install_requires
 )
+
+
