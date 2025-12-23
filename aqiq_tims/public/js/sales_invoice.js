@@ -1,24 +1,21 @@
 frappe.ui.form.on('Sales Invoice', {
     refresh: function(frm) {
         // Only show button if invoice is submitted and not already sent to KRA
-        // setTimeout(() => {
-            
-            if (frm.doc.docstatus === 1 && !frm.doc.custom_sent_to_kra) {
-                frm.add_custom_button('Send to TIMS', () => {
-                    send_to_tims(frm);
-                })
-            }
-        // }, 1000);
+        if (frm.doc.docstatus === 1 && !frm.doc.custom_sent_to_kra) {
+            frm.add_custom_button(__('Send to TIMS'), function() {
+                send_to_tims(frm);
+            });
+        }
 
         // Show TIMS status in the dashboard
         if (frm.doc.custom_sent_to_kra) {
-            let status_color = frm.doc.custom_tims_response_code === '000' ? 'green' : 'red';
-            let status_message = frm.doc.custom_tims_response_code === '000' ? 
+            var status_color = frm.doc.custom_tims_response_code === 0 ? 'green' : 'red';
+            var status_message = frm.doc.custom_tims_response_code === 0 ? 
                 'Successfully sent to TIMS' : 
                 'Failed to send to TIMS';
 
             frm.dashboard.add_indicator(
-                __(`TIMS Status: ${status_message}`),
+                __('TIMS Status: {0}', [status_message]),
                 status_color
             );
 
@@ -26,13 +23,13 @@ frappe.ui.form.on('Sales Invoice', {
             show_tims_details(frm);
         }
     },
-    on_submit(frm){
-        frappe.db.get_value('TIMS Device Setup', 'TIMS Device Setup', 'send_invoices_to_kra_on_submit')
-            .then(r => {
-            if(r.message.send_invoices_to_kra_on_submit){
+    
+    on_submit: function(frm) {
+        frappe.db.get_value('TIMS Device Setup', 'TIMS Device Setup', 'send_invoices_to_kra_on_submit', function(r) {
+            if (r && r.send_invoices_to_kra_on_submit) {
                 frm.reload_doc();
             }
-        })
+        });
     }
 });
 
@@ -52,14 +49,14 @@ function send_to_tims(frm) {
 
 function show_tims_details(frm) {
     if (frm.doc.custom_sent_to_kra) {
-        let html = `
+        var html = `
             <div class="tims-details" style="padding: 10px; margin-top: 10px;">
                 <div class="row">
                     <div class="col-sm-6">
                         <strong>TIMS Response Code:</strong> ${frm.doc.custom_tims_response_code || ''}
                     </div>
                     <div class="col-sm-6">
-                        <strong>Signing Time:</strong> ${frm.doc.custom_signing_time || ''}
+                        <strong>Signing Time:</strong> ${frm.doc.custom_kra_signing_time || ''}
                     </div>
                 </div>
                 <div class="row" style="margin-top: 10px;">
@@ -70,15 +67,15 @@ function show_tims_details(frm) {
                         <strong>CUSN:</strong> ${frm.doc.custom_cusn || ''}
                     </div>
                     <div class="col-sm-4">
-                        <strong>CUIN:</strong> ${frm.doc.custom__cuin || ''}
+                        <strong>CUIN:</strong> ${frm.doc.custom_cuin || ''}
                     </div>
                 </div>
-                ${frm.doc.custom_kra_qr_code ? `
+                ${frm.doc.custom_kra_qr_code_data ? `
                 <div class="row" style="margin-top: 10px;">
                     <div class="col-sm-12">
                         <strong>QR Code Data:</strong>
                         <div style="word-break: break-all; margin-top: 5px;">
-                            ${frm.doc.custom_kra_qr_code}
+                            ${frm.doc.custom_kra_qr_code_data}
                         </div>
                     </div>
                 </div>
@@ -89,4 +86,4 @@ function show_tims_details(frm) {
         $(frm.dashboard.wrapper).find('.tims-details').remove();
         $(frm.dashboard.wrapper).append(html);
     }
-} 
+}
