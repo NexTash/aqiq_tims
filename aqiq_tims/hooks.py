@@ -1,9 +1,60 @@
 app_name = "aqiq_tims"
 app_title = "AQIQ TIMS Integration"
 app_publisher = "RONOH"
-app_description = "KRA TIMS Integration for erpnext"
+app_description = "KRA TIMS Integration for ERPNext"
+app_icon = "octicon octicon-plug"
+app_color = "grey"
 app_email = "ronoelisha625@gmail.com"
-app_license = "mit"
+app_license = "MIT"
+
+
+# ----------------------------------
+# Document Events
+# ----------------------------------
+
+doc_events = {
+    "Sales Invoice": {
+        "before_save": "aqiq_tims.api.sales_invoice_is_return",
+        "on_submit": "aqiq_tims.api.sales_invoice_on_submit",
+    }
+}
+
+
+# ----------------------------------
+# Fixtures
+# ----------------------------------
+
+fixtures = [
+    {
+        "dt": "Custom Field",
+        "filters": [
+            ["name", "like", "Sales Invoice-custom_%"]
+        ]
+    },
+    {
+        "dt": "Property Setter",
+        "filters": [
+            ["doc_type", "=", "Sales Invoice"]
+        ]
+    },
+    {
+        "dt": "DocType",
+        "filters": [
+            ["name", "in", ["KRA Response", "TIMS Device Setup"]]
+        ]
+    }
+]
+
+
+# ----------------------------------
+# Client-side JS
+# ----------------------------------
+
+doctype_js = {
+    "Sales Invoice": "public/js/sales_invoice.js"
+}
+
+
 # required_apps = []
 
 # Includes in <head>
@@ -122,12 +173,14 @@ app_license = "mit"
 # ---------------
 # Hook on document methods and events
 
-doc_events = {
-    "Sales Invoice": {
-        "before_save": "aqiq_tims.api.sales_invoice_is_return",
-        "on_submit": "aqiq_tims.api.sales_invoice_on_submit"
-    },
-}
+
+# # DocType events
+# doc_events = {
+#     "Sales Invoice": {
+#         "before_save": "aqiq_tims.api.sales_invoice_is_return",
+#         "on_submit": "aqiq_tims.api.sales_invoice_on_submit"
+#     },
+# }
 
 # Scheduled Tasks
 # ---------------
@@ -226,28 +279,35 @@ doc_events = {
 # 	"Logging DocType Name": 30  # days to retain logs
 # }
 
-fixtures = [
-    {
-        "dt": "Custom Field",
-        "filters": [
-            ["name", "like", "Sales Invoice-custom_%"]
-        ]
-    },
-    {
-        "dt": "Property Setter",
-        "filters": [
-            ["doc_type", "=", "Sales Invoice"]
-        ]
-    },
-    {
-        "dt": "DocType",
-        "filters": [
-            ["name", "in", ["KRA Response", "TIMS Device Setup"]]
-        ]
-    }
-]
 
-doctype_js = {
-    "Sales Invoice": "public/js/sales_invoice.js"
-}
+# # Scheduled tasks (if needed)
+# scheduler_events = {
+#     "all": [
+#         "aqiq_tims.tasks.all"
+#     ],
+#     "daily": [
+#         "aqiq_tims.tasks.daily"
+#     ],
+#     "hourly": [
+#         "aqiq_tims.tasks.hourly"
+#     ],
+#     "weekly": [
+#         "aqiq_tims.tasks.weekly"
+#     ],
+#     "monthly": [
+#         "aqiq_tims.tasks.monthly"
+#     ]
+# }
+
+# # Fixtures
+# fixtures = [
+#     {"dt": "Custom Field", "filters": [["name", "like", "Sales Invoice-custom_%"]]},
+#     {"dt": "Property Setter", "filters": [["doc_type", "=", "Sales Invoice"]]},
+#     {"dt": "DocType", "filters": [["name", "in", ["KRA Response", "TIMS Device Setup"]]]}
+# ]
+
+# # JS inclusion
+# doctype_js = {
+#     "Sales Invoice": "public/js/sales_invoice.js"
+# }
 
