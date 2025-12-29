@@ -39,8 +39,8 @@ def is_valid_posting_date(doc, device_setup):
 def build_payload(doc, device_setup):
     payment_method = "Cash" if doc.status == 'Paid' else 'Credit'
     till_no = ''
-    rct_no = doc.name
-    customer_pin = frappe.db.get_value("Customer", doc.customer, "tax_id") or ''
+    rct_no = doc.rct_no if hasattr(doc, 'rct_no') and doc.rct_no else ''
+    customer_pin =  ''
     invoice_items = get_invoice_items(doc.name)
     tax_category = get_tax_category(doc.name)
     

@@ -195,7 +195,7 @@ fixtures = [
     {
         "dt": "Custom Field",
         "filters": [
-            ["name", "like", "Sales Invoice-custom_%"]
+            ["name", "like", "Sales Invoice"]
         ]
     },
     {
