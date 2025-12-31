@@ -1,34 +1,42 @@
+import re
 import frappe
 import json
 import requests
 from frappe.utils import today
 from datetime import datetime
-from aqiq_tims_integration.services.qr import generate_qr_code 
+from aqiq_tims.services.qr import generate_qr_code 
+
+
 
 @frappe.whitelist()
 def send_request(invoice):
-    try:
+    # try:
         device_setup = frappe.get_single('TIMS Device Setup')
         doc = frappe.get_doc("Sales Invoice", invoice)
+        payload = build_payload(doc, device_setup)
+        return payload
 
-        if device_setup.status == 'Active':
-            if is_valid_posting_date(doc, device_setup):
-                payload = build_payload(doc, device_setup)
-                send_payload(payload, invoice, doc)
-            else:
-                frappe.msgprint(
-                    msg="Invoice Posting Date Must be Today's Date",
-                    title='Error Message',
-                    indicator='red',
-                )
-        else:
-            frappe.msgprint(
-                msg='TIMS Device Setup for Sending Invoices is not Active.',
-                title='Error Message',
-                indicator='red',
-            )
-    except Exception as e:
-        handle_exception(e)
+    #     if device_setup.status == 'Active':
+    #         if is_valid_posting_date(doc, device_setup):
+
+              
+    #             # send_payload(payload, invoice, doc)
+    #         else:
+    #             frappe.msgprint(
+    #                 msg="Invoice Posting Date Must be Today's Date",
+    #                 title='Error Message',
+    #                 indicator='red',
+    #             )
+    #     else:
+    #         frappe.msgprint(
+    #             msg='TIMS Device Setup for Sending Invoices is not Active.',
+    #             title='Error Message',
+    #             indicator='red',
+    #         )
+    # except Exception as e:
+    #     handle_exception(e)
+
+
 
 
 def is_valid_posting_date(doc, device_setup):
@@ -40,16 +48,16 @@ def is_valid_posting_date(doc, device_setup):
 def build_payload(doc, device_setup):
     payment_method = "Cash" if doc.status == 'Paid' else 'Credit'
     till_no = ''
-    rct_no = doc.rct_no if hasattr(doc, 'rct_no') and doc.rct_no else ''
-    customer_pin =  ''
+    rct_no = doc.rct_no or doc.name
+    customer_pin = frappe.db.get_value("Customer", doc.customer, "tax_id") or ''
     invoice_items = get_invoice_items(doc.name)
-    tax_category = get_tax_category(doc.name)
+    tax_category = get_tax_category(doc)
     
     vat_values = initialize_vat_values()
     items = []
 
     for item in invoice_items:
-        new_item, taxable_amount, tax_amount = calculate_tax(item, tax_category)
+        new_item, taxable_amount, tax_amount = calculate_tax(item, tax_category, doc.total)
         vat_values = update_vat_values(vat_values, item.title, taxable_amount, tax_amount)
         items.append(new_item)
 
@@ -57,23 +65,34 @@ def build_payload(doc, device_setup):
     return payload
 
 
+
 def get_invoice_items(invoice):
     query = """
-        SELECT DISTINCT sii.name, sii.item_code, sii.item_name, sii.rate, sii.base_rate, sii.base_amount,
+        SELECT sii.name, sii.item_code, sii.item_name, sii.rate, sii.base_rate, sii.base_amount,
         sii.base_net_rate, sii.base_net_amount, sii.qty, sii.item_tax_template, 
-        item_tax.item_tax_template, it_template.title, it_template_detail.tax_rate
+        it_template.title, it_template_detail.tax_rate
         FROM `tabSales Invoice Item` sii
-        LEFT JOIN `tabItem Tax` item_tax ON item_tax.parent = sii.item_code 
-        LEFT JOIN `tabItem Tax Template` it_template ON it_template.name = item_tax.item_tax_template
-        LEFT JOIN `tabItem Tax Template Detail` it_template_detail ON it_template_detail.parent = item_tax.item_tax_template
+        LEFT JOIN `tabItem Tax Template` it_template ON it_template.name = sii.item_tax_template
+        LEFT JOIN `tabItem Tax Template Detail` it_template_detail ON it_template_detail.parent = sii.item_tax_template
         WHERE sii.parent = %s
     """
     return frappe.db.sql(query, invoice, as_dict=True)
 
 
 def get_tax_category(invoice):
-    is_inclusive_or_exclusive = frappe.db.get_value('Sales Taxes and Charges', {'parenttype': 'Sales Invoice', 'parent': invoice}, 'included_in_print_rate')
-    return "Inclusive" if is_inclusive_or_exclusive == 1 else "Exclusive"
+
+
+    territory = frappe.db.get_value("Customer",invoice.customer, "territory")
+
+    if territory == "Kenya":
+        return "16% VAT"
+    else:
+        return "Exempt"
+    
+    # is_inclusive_or_exclusive = frappe.db.get_value('Sales Taxes and Charges', 
+    # {'parenttype': 'Sales Invoice', 'parent': invoice}, 
+    # 'included_in_print_rate')
+    # return "Inclusive" if is_inclusive_or_exclusive == 1 else "Exclusive"
 
 
 def initialize_vat_values():
@@ -92,25 +111,82 @@ def initialize_vat_values():
         "VAT_F": 0,
     }
 
+def calculate_discount(item, total_amount):
 
-def calculate_tax(item, tax_category):
-    tax_rate = float(item.tax_rate or 0)
+    latest_rule_title = frappe.db.get_value(
+        "Pricing Rule",
+        filters={
+            "selling": 1,
+        },
+        fieldname="title",
+        order_by="creation desc"
+    )
+    
+    if not latest_rule_title:
+        return 0.0
+    
+    pricing_rules = frappe.get_all(
+        "Pricing Rule",
+        filters={
+            "title": latest_rule_title,
+            "selling": 1,
+        },
+        fields=["name", "title", "min_amt", "max_amt", "discount_percentage"],
+        order_by="min_amt asc"
+    )
+    
+    if not pricing_rules:
+        return 0.0
+    
+    applicable_rule = None
+    for rule in pricing_rules:
+        min_amt = float(rule.min_amt or 0)
+        max_amt = float(rule.max_amt or 0)
+        
+        if min_amt <= total_amount <= max_amt:
+            applicable_rule = rule
+            break
+    
+    if not applicable_rule:
+        return 0.0
+    
+    discount_percentage = float(applicable_rule.discount_percentage or 0)
+
+    item_rate = float(item.rate or 0)
+    qty = float(item.qty or 1.0)
+    item_total = item_rate * qty
+    
+    discount_amount = (item_total * discount_percentage) / 100
+    
+    return round(discount_amount, 2)
+
+
+def calculate_tax(item, tax_category, total_amount=0.0):
+    
+    if tax_category == "16% VAT":
+        tax_rate = 16.0
+    else:  
+        tax_rate = 0.0
+    
     tax_value = 1 + (tax_rate / 100)
     
     qty = float(item.qty or 1.0)
-    
-    base_net_rate = float(item.base_net_rate or 0)
-
+    base_net_rate = float(item.rate or 0)
     unit_price = round(base_net_rate, 2)
-    discount = 0.0
     
-    hs_code = get_hs_code(item.title)
-    if hs_code == "0043.11.00":
+    discount = calculate_discount(item, total_amount)
+
+    if tax_category == "Exempt":
+        hs_code = "0043.11.00"
         product_code = "0043.11.00"
-    elif hs_code == "0022.12.00":
-        product_code = "0022.12.00"
     else:
-        product_code = item.item_code
+        hs_code = get_hs_code(item.title)
+        if hs_code == "0043.11.00":
+            product_code = "0043.11.00"
+        elif hs_code == "0022.12.00":
+            product_code = "0022.12.00"
+        else:
+            product_code = item.item_code
 
     new_item = {
         "productCode": product_code,
@@ -119,17 +195,18 @@ def calculate_tax(item, tax_category):
         "unitPrice": abs(float(unit_price)),
         "discount": abs(float(discount)),
         "taxtype": int(tax_rate),
-        # "hsCode": hs_code
     }
 
-    if tax_category == "Inclusive":
-        taxable_amount = (unit_price * qty - discount) / tax_value
-    else:
-        taxable_amount = unit_price * qty - discount
-        
+    taxable_amount = unit_price * qty - discount
+    
     tax_amount = taxable_amount * (tax_rate / 100)
 
     return new_item, taxable_amount, tax_amount
+
+
+
+
+
 
 
 def get_hs_code(tax_type):
