@@ -188,7 +188,7 @@ def calculate_tax(item, tax_category, total_amount=0.0):
     tax_amount = round(taxable_amount * (tax_rate / 100), 2)
 
 
-    item_rate = (tax_amount + taxable_amount) / qty
+    item_rate = (tax_amount + taxable_amount + discount) / qty
     new_item = {
         "productCode": product_code,
         "productDesc": item.item_name,
@@ -199,6 +199,7 @@ def calculate_tax(item, tax_category, total_amount=0.0):
     }
 
     return new_item, taxable_amount, tax_amount
+
 
 
 def get_hs_code(tax_type):
@@ -233,8 +234,10 @@ def update_vat_values(vat_values, tax_category, taxable_amount, tax_amount):
     return vat_values
 
 
+
 def create_payload(doc, vat_values, items, payment_method, customer_pin, till_no, rct_no):
-    total = round(
+ 
+    vat_total = round(
         vat_values["VAT_A_NET"] + vat_values["VAT_A"] +
         vat_values["VAT_B_NET"] + vat_values["VAT_B"] +
         vat_values["VAT_C_NET"] + vat_values["VAT_C"] +
@@ -243,31 +246,63 @@ def create_payload(doc, vat_values, items, payment_method, customer_pin, till_no
         vat_values["VAT_F_NET"] + vat_values["VAT_F"], 2
     )
 
+    item_total = 0.0
+    for item in items:
+        qty = float(item.get("quantity", 0))
+        price = float(item.get("unitPrice", 0))
+        discount = float(item.get("discount", 0))
+        item_total += (qty * price) - discount
+
+    item_total = round(item_total, 2)
+
+
+    diff = round(item_total - vat_total, 2)
+
+    if diff != 0:
+        vat_values["VAT_A_NET"] = round(
+            float(vat_values["VAT_A_NET"]) + diff, 2
+        )
+
+  
+    final_total = round(
+        vat_values["VAT_A_NET"] + vat_values["VAT_A"] +
+        vat_values["VAT_B_NET"] + vat_values["VAT_B"] +
+        vat_values["VAT_C_NET"] + vat_values["VAT_C"] +
+        vat_values["VAT_D_NET"] + vat_values["VAT_D"] +
+        vat_values["VAT_E_NET"] + vat_values["VAT_E"] +
+        vat_values["VAT_F_NET"] + vat_values["VAT_F"], 2
+    )
 
     payload_type = "sales" if not doc.is_return else "refund"
-    cuin = "" if not doc.is_return else frappe.db.get_value("KRA Response", {"invoice_number": doc.return_against}, "cuin")
+    cuin = "" if not doc.is_return else frappe.db.get_value(
+        "KRA Response",
+        {"invoice_number": doc.return_against},
+        "cuin"
+    )
 
     payload = {
         "saleType": payload_type,
         "cuin": cuin,
         "till": till_no,
         "rctNo": rct_no,
-        "total": round(abs(float(total)), 3),
-        "Paid": round(abs(float(total)), 3),
+        "total": round(abs(final_total), 2),
+        "Paid": round(abs(final_total), 2),
         "Payment": payment_method,
         "CustomerPIN": customer_pin,
-        "VAT_A_Net": round(abs(float(vat_values["VAT_A_NET"])), 2),
-        "VAT_A": round(abs(float(vat_values["VAT_A"])), 2),
-        "VAT_B_Net": round(abs(float(vat_values["VAT_B_NET"])), 2),
-        "VAT_B": round(abs(float(vat_values["VAT_B"])), 2),
-        "VAT_C_Net": round(abs(float(vat_values["VAT_C_NET"])), 2),
-        "VAT_C": round(abs(float(vat_values["VAT_C"])), 2),
-        "VAT_D_Net": round(abs(float(vat_values["VAT_D_NET"])), 2),
-        "VAT_D": round(abs(float(vat_values["VAT_D"])), 2),
-        "VAT_E_Net": round(abs(float(vat_values["VAT_E_NET"])), 2),
-        "VAT_E": round(abs(float(vat_values["VAT_E"])), 2),
-        "VAT_F_Net": round(abs(float(vat_values["VAT_F_NET"])), 2),
-        "VAT_F": round(abs(float(vat_values["VAT_F"])), 2),
+
+        "VAT_A_Net": round(abs(vat_values["VAT_A_NET"]), 2),
+        "VAT_A": round(abs(vat_values["VAT_A"]), 2),
+        "VAT_B_Net": round(abs(vat_values["VAT_B_NET"]), 2),
+        "VAT_B": round(abs(vat_values["VAT_B"]), 2),
+        "VAT_C_Net": round(abs(vat_values["VAT_C_NET"]), 2),
+        "VAT_C": round(abs(vat_values["VAT_C"]), 2),
+        "VAT_D_Net": round(abs(vat_values["VAT_D_NET"]), 2),
+        "VAT_D": round(abs(vat_values["VAT_D"]), 2),
+        "VAT_E_Net": round(abs(vat_values["VAT_E_NET"]), 2),
+        "VAT_E": round(abs(vat_values["VAT_E"]), 2),
+        "VAT_F_Net": round(abs(vat_values["VAT_F_NET"]), 2),
+        "VAT_F": round(abs(vat_values["VAT_F"]), 2),
+
         "data": items
     }
 
