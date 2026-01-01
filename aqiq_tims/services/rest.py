@@ -54,7 +54,7 @@ def build_payload(doc, device_setup):
 
     for item in invoice_items:
         new_item, taxable_amount, tax_amount = calculate_tax(item, tax_category, doc.total)
-        vat_values = update_vat_values(vat_values, tax_category, taxable_amount, tax_amount)  # <-- fix here
+        vat_values = update_vat_values(vat_values, tax_category, taxable_amount, tax_amount)
         items.append(new_item)
 
 
@@ -363,13 +363,12 @@ def update_doc_with_response(doc, data,qr_code):
 
     doc.custom_tsin = data["TSIN"]
     doc.custom_cusn = data["CUSN"]
-    doc.custom__cuin = "KRAMW017202207049144"
     doc.cu_invoice_date = data["dtStmp"]
     doc.cu_link = data["QRCode"]
     doc.custom_qr_code = data["QRCode"]
     doc.kra_qr_code = qr_image    
     doc.custom_kra_signing_time = data["dtStmp"]
-    doc.etr_serial_number = "KRAMW017202207049144"
+    doc.etr_serial_number = "KRAMW017202207049581"
     doc.etr_invoice_number = data["CUIN"]
     doc.custom_sent_to_kra = 1
     doc.sent_to_kra = 1
