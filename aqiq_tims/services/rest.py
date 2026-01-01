@@ -7,37 +7,33 @@ from datetime import datetime
 from aqiq_tims.services.qr import generate_qr_code 
 
 
-
 @frappe.whitelist()
 def send_request(invoice):
-    # try:
+    try:
         device_setup = frappe.get_single('TIMS Device Setup')
         doc = frappe.get_doc("Sales Invoice", invoice)
         payload = build_payload(doc, device_setup)
-        return payload
+        # return payload
 
-    #     if device_setup.status == 'Active':
-    #         if is_valid_posting_date(doc, device_setup):
+        if device_setup.status == 'Active':
+            if is_valid_posting_date(doc, device_setup):
+                send_payload(payload, invoice, doc)
+                pass
+            else:
+                frappe.msgprint(
+                    msg="Invoice Posting Date Must be Today's Date",
+                    title="Error Message",
+                    indicator="red",
+                )
+        else:
+            frappe.msgprint(
+                msg="TIMS Device Setup for Sending Invoices is not Active.",
+                title="Error Message",
+                indicator="red",
+            )
 
-              
-    #             # send_payload(payload, invoice, doc)
-    #         else:
-    #             frappe.msgprint(
-    #                 msg="Invoice Posting Date Must be Today's Date",
-    #                 title='Error Message',
-    #                 indicator='red',
-    #             )
-    #     else:
-    #         frappe.msgprint(
-    #             msg='TIMS Device Setup for Sending Invoices is not Active.',
-    #             title='Error Message',
-    #             indicator='red',
-    #         )
-    # except Exception as e:
-    #     handle_exception(e)
-
-
-
+    except Exception as e:
+        handle_exception(e)
 
 def is_valid_posting_date(doc, device_setup):
     today = datetime.now().strftime("%d-%m-%Y")
@@ -58,8 +54,9 @@ def build_payload(doc, device_setup):
 
     for item in invoice_items:
         new_item, taxable_amount, tax_amount = calculate_tax(item, tax_category, doc.total)
-        vat_values = update_vat_values(vat_values, item.title, taxable_amount, tax_amount)
+        vat_values = update_vat_values(vat_values, tax_category, taxable_amount, tax_amount)  # <-- fix here
         items.append(new_item)
+
 
     payload = create_payload(doc, vat_values, items, payment_method, customer_pin, till_no, rct_no)
     return payload
@@ -77,7 +74,6 @@ def get_invoice_items(invoice):
         WHERE sii.parent = %s
     """
     return frappe.db.sql(query, invoice, as_dict=True)
-
 
 def get_tax_category(invoice):
 
@@ -160,7 +156,6 @@ def calculate_discount(item, total_amount):
     
     return round(discount_amount, 2)
 
-
 def calculate_tax(item, tax_category, total_amount=0.0):
     
     if tax_category == "16% VAT":
@@ -176,83 +171,78 @@ def calculate_tax(item, tax_category, total_amount=0.0):
     
     discount = calculate_discount(item, total_amount)
 
+    taxtype = '16' if tax_category == "16% VAT" else '0'
+
     if tax_category == "Exempt":
-        hs_code = "0043.11.00"
-        product_code = "0043.11.00"
+        hs_code = "0001.12.00"
+        product_code = "0001.12.00"
     else:
         hs_code = get_hs_code(item.title)
-        if hs_code == "0043.11.00":
-            product_code = "0043.11.00"
-        elif hs_code == "0022.12.00":
-            product_code = "0022.12.00"
+        if hs_code == "0001.12.00":
+            product_code = "0001.12.00"
         else:
             product_code = item.item_code
+            
 
+    taxable_amount = round(unit_price * qty - discount, 2)
+    tax_amount = round(taxable_amount * (tax_rate / 100), 2)
+
+
+    item_rate = (tax_amount + taxable_amount) / qty
     new_item = {
         "productCode": product_code,
         "productDesc": item.item_name,
-        "quantity": abs(float(qty)),
-        "unitPrice": abs(float(unit_price)),
-        "discount": abs(float(discount)),
-        "taxtype": int(tax_rate),
+        "quantity": round(qty, 2),
+        "unitPrice": round(item_rate, 2),
+        "discount": round(discount, 2),
+        "taxtype": taxtype,  
     }
-
-    taxable_amount = unit_price * qty - discount
-    
-    tax_amount = taxable_amount * (tax_rate / 100)
 
     return new_item, taxable_amount, tax_amount
 
 
-
-
-
-
-
 def get_hs_code(tax_type):
-    """
-    Returns the appropriate HS code based on tax type
-    """
+ 
     # frappe.throw(f"{tax_type}")
     if tax_type == "Exempt":
-        return "0043.11.00"
-    elif tax_type == "Zero Rated":
+        return "0001.12.00"
+    else:
         return "0022.12.00"
-    return ""  # Return empty string for other tax types
+    return "" 
 
-
-def update_vat_values(vat_values, tax_type, taxable_amount, tax_amount):
-    if tax_type == "VAT 16%":
+def update_vat_values(vat_values, tax_category, taxable_amount, tax_amount):
+    if tax_category == "16% VAT":
         vat_values["VAT_A_NET"] += taxable_amount
         vat_values["VAT_A"] += tax_amount
-    elif tax_type == "VAT 8%":
-        vat_values["VAT_B_NET"] += taxable_amount
-        vat_values["VAT_B"] += tax_amount
-    elif tax_type == "VAT 10%":
-        vat_values["VAT_C_NET"] += taxable_amount
-        vat_values["VAT_C"] += tax_amount
-    elif tax_type == "VAT 2%":
-        vat_values["VAT_D_NET"] += taxable_amount
-        vat_values["VAT_D"] += tax_amount
-    elif tax_type == "Zero Rated":
-        vat_values["VAT_E_NET"] += taxable_amount
-        vat_values["VAT_E"] += tax_amount
-    elif tax_type == "Exempt":
+    elif tax_category == "Exempt":
         vat_values["VAT_F_NET"] += taxable_amount
         vat_values["VAT_F"] += tax_amount
+    elif tax_category == "8% VAT":
+        vat_values["VAT_B_NET"] += taxable_amount
+        vat_values["VAT_B"] += tax_amount
+    elif tax_category == "10% VAT":
+        vat_values["VAT_C_NET"] += taxable_amount
+        vat_values["VAT_C"] += tax_amount
+    elif tax_category == "2% VAT":
+        vat_values["VAT_D_NET"] += taxable_amount
+        vat_values["VAT_D"] += tax_amount
+    elif tax_category == "Zero Rated":
+        vat_values["VAT_E_NET"] += taxable_amount
+        vat_values["VAT_E"] += tax_amount
 
     return vat_values
 
 
 def create_payload(doc, vat_values, items, payment_method, customer_pin, till_no, rct_no):
-    total = sum([
-        vat_values["VAT_A_NET"] + vat_values["VAT_A"],
-        vat_values["VAT_B_NET"] + vat_values["VAT_B"],
-        vat_values["VAT_C_NET"] + vat_values["VAT_C"],
-        vat_values["VAT_D_NET"] + vat_values["VAT_D"],
-        vat_values["VAT_E_NET"],
-        vat_values["VAT_F_NET"]
-    ])
+    total = round(
+        vat_values["VAT_A_NET"] + vat_values["VAT_A"] +
+        vat_values["VAT_B_NET"] + vat_values["VAT_B"] +
+        vat_values["VAT_C_NET"] + vat_values["VAT_C"] +
+        vat_values["VAT_D_NET"] + vat_values["VAT_D"] +
+        vat_values["VAT_E_NET"] + vat_values["VAT_E"] +
+        vat_values["VAT_F_NET"] + vat_values["VAT_F"], 2
+    )
+
 
     payload_type = "sales" if not doc.is_return else "refund"
     cuin = "" if not doc.is_return else frappe.db.get_value("KRA Response", {"invoice_number": doc.return_against}, "cuin")
@@ -262,8 +252,8 @@ def create_payload(doc, vat_values, items, payment_method, customer_pin, till_no
         "cuin": cuin,
         "till": till_no,
         "rctNo": rct_no,
-        "total": round(abs(float(total)), 2),
-        "Paid": round(abs(float(total)), 2),
+        "total": round(abs(float(total)), 3),
+        "Paid": round(abs(float(total)), 3),
         "Payment": payment_method,
         "CustomerPIN": customer_pin,
         "VAT_A_Net": round(abs(float(vat_values["VAT_A_NET"])), 2),
@@ -301,7 +291,6 @@ def send_payload(payload, invoice, doc):
         )
 
 
-
 def handle_response(response, invoice, doc, payload):
     data = json.loads(response.text)
 
@@ -320,9 +309,10 @@ def handle_response(response, invoice, doc, payload):
 
     kra_response.insert()
     frappe.db.commit()
+    qr_code=  data["QRCode"],
 
     if data['ResponseCode'] == '000':
-        update_doc_with_response(doc, data)
+        update_doc_with_response(doc, data,qr_code)
     else:
         frappe.msgprint(
             msg="Invoice Submission to KRA Failed. Please Check KRA Response Generated.",
@@ -331,10 +321,10 @@ def handle_response(response, invoice, doc, payload):
         )
 
 
-def update_doc_with_response(doc, data):
+def update_doc_with_response(doc, data,qr_code):
     doc.custom_tims_response_code = data["ResponseCode"]
     
-    qr_image = generate_qr_code (data["QRCode"])
+    qr_image = generate_qr_code (doc.name,qr_code)
 
     doc.custom_tsin = data["TSIN"]
     doc.custom_cusn = data["CUSN"]
@@ -342,7 +332,7 @@ def update_doc_with_response(doc, data):
     doc.cu_invoice_date = data["dtStmp"]
     doc.cu_link = data["QRCode"]
     doc.custom_qr_code = data["QRCode"]
-    doc.custom_qr_image = qr_image    
+    doc.kra_qr_code = qr_image    
     doc.custom_kra_signing_time = data["dtStmp"]
     doc.etr_serial_number = "KRAMW017202207049144"
     doc.etr_invoice_number = data["CUIN"]
