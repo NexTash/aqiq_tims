@@ -1,56 +1,42 @@
 frappe.ui.form.on("Sales Invoice", {
   refresh: function (frm) {
-    // Only show button if invoice is submitted and not already sent to KRA
     frm.add_custom_button(__("Send to TIMS"), function () {
       send_to_tims(frm);
     });
-    frm.add_custom_button(__("Payload/ QR "), function () {
-      frappe.call({
-        method: "aqiq_tims.services.qr.generate_qr_code",
-        args: {
-          field_value: frm.doc.cu_link,
-          docname: frm.doc.name,
-        },
-        freeze: true,
-        freeze_message: __("Generating QR Code..."),
+    // frm.add_custom_button(__("Payload/ QR "), function () {
+    //   frappe.call({
+    //     method: "aqiq_tims.services.qr.generate_qr_code",
+    //     args: {
+    //       field_value: frm.doc.cu_link,
+    //       docname: frm.doc.name,
+    //     },
+    //     freeze: true,
+    //     freeze_message: __("Generating QR Code..."),
 
-        // callback: function (r) {
-        // if (r.message) {
-        //       frappe.msgprint({
-        //           title: __("Generated Payload"),
-        //           message: `<pre style="white-space: pre-wrap; word-break: break-word;">
-        //         ${JSON.stringify(r.message, null, 2)}
-        //         </pre>`,
-        //                     wide: 1,
-        //                 });
-        //             }
-        //         }
+    //     callback: function (r) {
+    //       if (!r.message) return;
 
-        callback: function (r) {
-          if (!r.message) return;
+    //       frm.doc.kra_qr_code = r.message;
+    //       frm.refresh_field("kra_qr_code");
 
-          frm.doc.kra_qr_code = r.message;
-          frm.refresh_field("kra_qr_code");
+    //       frm.save().then(() => {
+    //         frappe.msgprint({
+    //           title: __("Generated QR Code / Payload"),
+    //           message: `
+    //             <div style="text-align: center;">
+    //                 <img src="${r.message}" 
+    //                      alt="QR Code" 
+    //                      style="max-width: 300px; width: 100%;" />
+    //                 <p>Scan this QR to open the URL</p>
+    //             </div>
+    //         `,
+    //           wide: 1,
+    //         });
+    //       });
+    //     },
+    //   });
+    // });
 
-          frm.save().then(() => {
-            frappe.msgprint({
-              title: __("Generated QR Code / Payload"),
-              message: `
-                <div style="text-align: center;">
-                    <img src="${r.message}" 
-                         alt="QR Code" 
-                         style="max-width: 300px; width: 100%;" />
-                    <p>Scan this QR to open the URL</p>
-                </div>
-            `,
-              wide: 1,
-            });
-          });
-        },
-      });
-    });
-
-    // Show TIMS status in the dashboard
     if (frm.doc.custom_sent_to_kra) {
       var status_color =
         frm.doc.custom_tims_response_code === 0 ? "green" : "red";
@@ -64,7 +50,6 @@ frappe.ui.form.on("Sales Invoice", {
         status_color
       );
 
-      // Show TIMS details section
       show_tims_details(frm);
     }
   },

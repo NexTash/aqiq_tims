@@ -171,7 +171,7 @@ def calculate_tax(item, tax_category, total_amount=0.0):
     
     discount = calculate_discount(item, total_amount)
 
-    taxtype = '16' if tax_category == "16% VAT" else '0'
+    taxtype = 16 if tax_category == "16% VAT" else 0
 
     if tax_category == "Exempt":
         hs_code = "0001.12.00"
@@ -216,8 +216,8 @@ def update_vat_values(vat_values, tax_category, taxable_amount, tax_amount):
         vat_values["VAT_A_NET"] += taxable_amount
         vat_values["VAT_A"] += tax_amount
     elif tax_category == "Exempt":
-        vat_values["VAT_F_NET"] += taxable_amount
-        vat_values["VAT_F"] += tax_amount
+        vat_values["VAT_E_NET"] += taxable_amount
+        vat_values["VAT_E"] += tax_amount
     elif tax_category == "8% VAT":
         vat_values["VAT_B_NET"] += taxable_amount
         vat_values["VAT_B"] += tax_amount
@@ -259,9 +259,12 @@ def create_payload(doc, vat_values, items, payment_method, customer_pin, till_no
     diff = round(item_total - vat_total, 2)
 
     if diff != 0:
-        vat_values["VAT_A_NET"] = round(
-            float(vat_values["VAT_A_NET"]) + diff, 2
-        )
+        if vat_values["VAT_A_NET"] > 0:
+            vat_values["VAT_A_NET"] = round(float(vat_values["VAT_A_NET"]) + diff, 2)
+        elif vat_values["VAT_E_NET"] > 0:
+            vat_values["VAT_E_NET"] = round(float(vat_values["VAT_E_NET"]) + diff, 2)
+        elif vat_values["VAT_F_NET"] > 0:
+            vat_values["VAT_F_NET"] = round(float(vat_values["VAT_F_NET"]) + diff, 2)
 
   
     final_total = round(
