@@ -236,9 +236,32 @@ def update_vat_values(vat_values, tax_category, taxable_amount, tax_amount):
 
     return vat_values
 
-
 def create_payload(doc, vat_values, items, payment_method, customer_pin, till_no, rct_no):
- 
+    
+    payload_type = "sales" if not doc.is_return else "refund"
+    cuin = ""
+    original_payload_str = ""
+
+    if doc.is_return and doc.return_against:
+        cuin, original_payload_str = frappe.db.get_value(
+            "KRA Response", 
+            {"invoice_number": doc.return_against}, 
+            ["cuin", "payload_sent"]
+        )
+
+    if payload_type == "refund":
+        try:
+            submitted_payload = eval(original_payload_str)
+        except:
+            submitted_payload = json.loads(original_payload_str)
+        
+        submitted_payload["saleType"] = "refund"
+        submitted_payload["cuin"] = cuin
+        submitted_payload["rctNo"] = rct_no
+        submitted_payload["Payment"] = payment_method
+        
+        return submitted_payload
+
     vat_total = round(
         vat_values["VAT_A_NET"] + vat_values["VAT_A"] +
         vat_values["VAT_B_NET"] + vat_values["VAT_B"] +
@@ -257,7 +280,6 @@ def create_payload(doc, vat_values, items, payment_method, customer_pin, till_no
 
     item_total = round(item_total, 2)
 
-
     diff = round(item_total - vat_total, 2)
 
     if diff != 0:
@@ -268,7 +290,6 @@ def create_payload(doc, vat_values, items, payment_method, customer_pin, till_no
         elif vat_values["VAT_F_NET"] > 0:
             vat_values["VAT_F_NET"] = round(float(vat_values["VAT_F_NET"]) + diff, 2)
 
-  
     final_total = round(
         vat_values["VAT_A_NET"] + vat_values["VAT_A"] +
         vat_values["VAT_B_NET"] + vat_values["VAT_B"] +
@@ -277,55 +298,32 @@ def create_payload(doc, vat_values, items, payment_method, customer_pin, till_no
         vat_values["VAT_E_NET"] + vat_values["VAT_E"] +
         vat_values["VAT_F_NET"] + vat_values["VAT_F"], 2
     )
-    payload_type = "sales" if not doc.is_return else "refund"
 
-    if payload_type == "refund":
-        result = frappe.db.get_value(
-            "KRA Response",
-            {"invoice_number": doc.return_against},
-            ["cuin", "payload_sent"],
-            as_dict=True
-        )
+    payload = {
+        "saleType": "sales",
+        "cuin": "",
+        "till": till_no,
+        "rctNo": rct_no,
+        "total": round(abs(final_total), 2),
+        "Paid": round(abs(final_total), 2),
+        "Payment": payment_method,
+        "CustomerPIN": customer_pin,
+        "VAT_A_Net": round(abs(vat_values["VAT_A_NET"]), 2),
+        "VAT_A": round(abs(vat_values["VAT_A"]), 2),
+        "VAT_B_Net": round(abs(vat_values["VAT_B_NET"]), 2),
+        "VAT_B": round(abs(vat_values["VAT_B"]), 2),
+        "VAT_C_Net": round(abs(vat_values["VAT_C_NET"]), 2),
+        "VAT_C": round(abs(vat_values["VAT_C"]), 2),
+        "VAT_D_Net": round(abs(vat_values["VAT_D_NET"]), 2),
+        "VAT_D": round(abs(vat_values["VAT_D"]), 2),
+        "VAT_E_Net": round(abs(vat_values["VAT_E_NET"]), 2),
+        "VAT_E": round(abs(vat_values["VAT_E"]), 2),
+        "VAT_F_Net": round(abs(vat_values["VAT_F_NET"]), 2),
+        "VAT_F": round(abs(vat_values["VAT_F"]), 2),
+        "data": items
+    }
 
-        if not result or not result.cuin or not result.payload_sent:
-            frappe.throw(
-                "Original invoice payload or CUIN not found in KRA Response for refund."
-            )
-
-        payload = json.loads(result.payload_sent)
-
-        payload["saleType"] = "refund"
-        payload["cuin"] = result.cuin
-
-        return payload
-
-    else:
-        payload = {
-            "saleType": payload_type,
-            "cuin": "",
-            "till": till_no,
-            "rctNo": rct_no,
-            "total": round(abs(final_total), 2),
-            "Paid": round(abs(final_total), 2),
-            "Payment": payment_method,
-            "CustomerPIN": customer_pin,
-            "VAT_A_Net": round(abs(vat_values["VAT_A_NET"]), 2),
-            "VAT_A": round(abs(vat_values["VAT_A"]), 2),
-            "VAT_B_Net": round(abs(vat_values["VAT_B_NET"]), 2),
-            "VAT_B": round(abs(vat_values["VAT_B"]), 2),
-            "VAT_C_Net": round(abs(vat_values["VAT_C_NET"]), 2),
-            "VAT_C": round(abs(vat_values["VAT_C"]), 2),
-            "VAT_D_Net": round(abs(vat_values["VAT_D_NET"]), 2),
-            "VAT_D": round(abs(vat_values["VAT_D"]), 2),
-            "VAT_E_Net": round(abs(vat_values["VAT_E_NET"]), 2),
-            "VAT_E": round(abs(vat_values["VAT_E"]), 2),
-            "VAT_F_Net": round(abs(vat_values["VAT_F_NET"]), 2),
-            "VAT_F": round(abs(vat_values["VAT_F"]), 2),
-            "data": items
-        }
-
-        return payload
-    
+    return payload
 
 
 
