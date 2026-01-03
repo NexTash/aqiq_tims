@@ -5,10 +5,10 @@ frappe.ui.form.on("Sales Invoice", {
     });
     // frm.add_custom_button(__("Payload/ QR "), function () {
     //   frappe.call({
-    //     method: "aqiq_tims.services.qr.generate_qr_code",
+    //     method: "aqiq_tims.services.rest.send_request",
     //     args: {
-    //       field_value: frm.doc.cu_link,
-    //       docname: frm.doc.name,
+         
+    //       invoice: frm.doc.name,
     //     },
     //     freeze: true,
     //     freeze_message: __("Generating QR Code..."),

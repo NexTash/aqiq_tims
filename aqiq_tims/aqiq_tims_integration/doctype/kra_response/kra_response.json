@@ -1,7 +1,7 @@
 {
  "actions": [],
- "autoname": "format:KRA-{MM}-{#####}",
- "creation": "2026-01-01 15:03:17.449937",
+ "allow_rename": 1,
+ "creation": "2026-01-03 13:31:46.480241",
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
@@ -20,6 +20,7 @@
   {
    "fieldname": "response_code",
    "fieldtype": "Data",
+   "in_list_view": 1,
    "label": "Response Code"
   },
   {
@@ -35,6 +36,7 @@
   {
    "fieldname": "cuin",
    "fieldtype": "Data",
+   "in_list_view": 1,
    "label": "CUIN"
   },
   {
@@ -59,6 +61,7 @@
   {
    "fieldname": "message",
    "fieldtype": "Small Text",
+   "in_list_view": 1,
    "label": "Message"
   },
   {
@@ -69,7 +72,7 @@
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-01-01 15:47:39.367981",
+ "modified": "2026-01-03 14:02:35.679120",
  "modified_by": "Administrator",
  "module": "AQIQ TIMS Integration",
  "name": "KRA Response",

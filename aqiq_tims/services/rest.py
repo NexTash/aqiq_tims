@@ -147,6 +147,9 @@ def calculate_discount(item, total_amount):
         return 0.0
     
     discount_percentage = float(applicable_rule.discount_percentage or 0)
+    
+    if discount_percentage == 0:
+        return 0.0
 
     item_rate = float(item.rate or 0)
     qty = float(item.qty or 1.0)
@@ -234,7 +237,6 @@ def update_vat_values(vat_values, tax_category, taxable_amount, tax_amount):
     return vat_values
 
 
-
 def create_payload(doc, vat_values, items, payment_method, customer_pin, till_no, rct_no):
  
     vat_total = round(
@@ -275,41 +277,56 @@ def create_payload(doc, vat_values, items, payment_method, customer_pin, till_no
         vat_values["VAT_E_NET"] + vat_values["VAT_E"] +
         vat_values["VAT_F_NET"] + vat_values["VAT_F"], 2
     )
-
     payload_type = "sales" if not doc.is_return else "refund"
-    cuin = "" if not doc.is_return else frappe.db.get_value(
-        "KRA Response",
-        {"invoice_number": doc.return_against},
-        "cuin"
-    )
 
-    payload = {
-        "saleType": payload_type,
-        "cuin": cuin,
-        "till": till_no,
-        "rctNo": rct_no,
-        "total": round(abs(final_total), 2),
-        "Paid": round(abs(final_total), 2),
-        "Payment": payment_method,
-        "CustomerPIN": customer_pin,
+    if payload_type == "refund":
+        result = frappe.db.get_value(
+            "KRA Response",
+            {"invoice_number": doc.return_against},
+            ["cuin", "payload_sent"],
+            as_dict=True
+        )
 
-        "VAT_A_Net": round(abs(vat_values["VAT_A_NET"]), 2),
-        "VAT_A": round(abs(vat_values["VAT_A"]), 2),
-        "VAT_B_Net": round(abs(vat_values["VAT_B_NET"]), 2),
-        "VAT_B": round(abs(vat_values["VAT_B"]), 2),
-        "VAT_C_Net": round(abs(vat_values["VAT_C_NET"]), 2),
-        "VAT_C": round(abs(vat_values["VAT_C"]), 2),
-        "VAT_D_Net": round(abs(vat_values["VAT_D_NET"]), 2),
-        "VAT_D": round(abs(vat_values["VAT_D"]), 2),
-        "VAT_E_Net": round(abs(vat_values["VAT_E_NET"]), 2),
-        "VAT_E": round(abs(vat_values["VAT_E"]), 2),
-        "VAT_F_Net": round(abs(vat_values["VAT_F_NET"]), 2),
-        "VAT_F": round(abs(vat_values["VAT_F"]), 2),
+        if not result or not result.cuin or not result.payload_sent:
+            frappe.throw(
+                "Original invoice payload or CUIN not found in KRA Response for refund."
+            )
 
-        "data": items
-    }
+        payload = json.loads(result.payload_sent)
 
-    return payload
+        payload["saleType"] = "refund"
+        payload["cuin"] = result.cuin
+
+        return payload
+
+    else:
+        payload = {
+            "saleType": payload_type,
+            "cuin": "",
+            "till": till_no,
+            "rctNo": rct_no,
+            "total": round(abs(final_total), 2),
+            "Paid": round(abs(final_total), 2),
+            "Payment": payment_method,
+            "CustomerPIN": customer_pin,
+            "VAT_A_Net": round(abs(vat_values["VAT_A_NET"]), 2),
+            "VAT_A": round(abs(vat_values["VAT_A"]), 2),
+            "VAT_B_Net": round(abs(vat_values["VAT_B_NET"]), 2),
+            "VAT_B": round(abs(vat_values["VAT_B"]), 2),
+            "VAT_C_Net": round(abs(vat_values["VAT_C_NET"]), 2),
+            "VAT_C": round(abs(vat_values["VAT_C"]), 2),
+            "VAT_D_Net": round(abs(vat_values["VAT_D_NET"]), 2),
+            "VAT_D": round(abs(vat_values["VAT_D"]), 2),
+            "VAT_E_Net": round(abs(vat_values["VAT_E_NET"]), 2),
+            "VAT_E": round(abs(vat_values["VAT_E"]), 2),
+            "VAT_F_Net": round(abs(vat_values["VAT_F_NET"]), 2),
+            "VAT_F": round(abs(vat_values["VAT_F"]), 2),
+            "data": items
+        }
+
+        return payload
+    
+
 
 
 def send_payload(payload, invoice, doc):
@@ -328,56 +345,77 @@ def send_payload(payload, invoice, doc):
             indicator='red',
         )
 
-
 def handle_response(response, invoice, doc, payload):
     data = json.loads(response.text)
 
     kra_response = frappe.get_doc({
         "doctype": "KRA Response",
-        "response_code": data["ResponseCode"] or '',
-        "message": data["Message"],
-        "tin": data["TSIN"],
-        "cusn": data["CUSN"],
-        "cuin": data["CUIN"],
-        "qr_code": data["QRCode"],
-        "signing_time": data["dtStmp"],
+        "response_code": data.get("ResponseCode", ""),
+        "message": data.get("Message", ""),
+        "tin": data.get("TSIN", ""),
+        "cusn": data.get("CUSN", ""),
+        "cuin": data.get("CUIN", ""),
+        "qr_code": data.get("QRCode", ""),
+        "signing_time": data.get("dtStmp", ""),
         "invoice_number": invoice,
         "payload_sent": str(payload)
     })
 
-    kra_response.insert()
+    kra_response.insert(ignore_permissions=True)
     frappe.db.commit()
-    qr_code=  data["QRCode"],
+    
+    qr_code = data.get("QRCode", "")
 
-    if data['ResponseCode'] == '000':
-        update_doc_with_response(doc, data,qr_code)
+    if data.get('ResponseCode') == '000':
+        update_doc_with_response(doc, data, qr_code)
+        frappe.msgprint(
+            msg="Invoice Successfully Submitted to KRA",
+            title='Success',
+            indicator='green',
+        )
     else:
         frappe.msgprint(
-            msg="Invoice Submission to KRA Failed. Please Check KRA Response Generated.",
+            msg=f"Invoice Submission to KRA Failed. Error: {data.get('Message', 'Unknown error')}. Please Check KRA Response Generated.",
             title='Error Message',
             indicator='red',
         )
 
 
-def update_doc_with_response(doc, data,qr_code):
-    doc.custom_tims_response_code = data["ResponseCode"]
+def update_doc_with_response(doc, data, qr_code):
+    doc.custom_tims_response_code = data.get("ResponseCode", "")
     
-    qr_image = generate_qr_code (doc.name,qr_code)
+    qr_image = generate_qr_code(doc.name, qr_code)
 
-    doc.custom_tsin = data["TSIN"]
-    doc.custom_cusn = data["CUSN"]
-    doc.cu_invoice_date = data["dtStmp"]
-    doc.cu_link = data["QRCode"]
-    doc.custom_qr_code = data["QRCode"]
+    doc.custom_tsin = data.get("TSIN", "")
+    doc.custom_cusn = data.get("CUSN", "")
+    doc.cu_invoice_date = data.get("dtStmp", "")
+    doc.cu_link = data.get("QRCode", "")
+    doc.custom_qr_code = data.get("QRCode", "")
     doc.kra_qr_code = qr_image    
-    doc.custom_kra_signing_time = data["dtStmp"]
+    doc.custom_kra_signing_time = data.get("dtStmp", "")
     doc.etr_serial_number = "KRAMW017202207049581"
-    doc.etr_invoice_number = data["CUIN"]
+    doc.etr_invoice_number = data.get("CUIN", "")
     doc.custom_sent_to_kra = 1
     doc.sent_to_kra = 1
-    doc.save(ignore_permissions=True)
-
-    doc.submit()
+    
+    if doc.docstatus == 0:
+        doc.save(ignore_permissions=True)
+        doc.submit()
+    else:
+        doc.db_set('custom_tims_response_code', data.get("ResponseCode", ""))
+        doc.db_set('custom_tsin', data.get("TSIN", ""))
+        doc.db_set('custom_cusn', data.get("CUSN", ""))
+        doc.db_set('cu_invoice_date', data.get("dtStmp", ""))
+        doc.db_set('cu_link', data.get("QRCode", ""))
+        doc.db_set('custom_qr_code', data.get("QRCode", ""))
+        doc.db_set('kra_qr_code', qr_image)
+        doc.db_set('custom_kra_signing_time', data.get("dtStmp", ""))
+        doc.db_set('etr_serial_number', "KRAMW017202207049581")
+        doc.db_set('etr_invoice_number', data.get("CUIN", ""))
+        doc.db_set('custom_sent_to_kra', 1)
+        doc.db_set('sent_to_kra', 1)
+        frappe.db.commit()
+    
     doc.reload()
     # if doc.docstatus == 0:
 
