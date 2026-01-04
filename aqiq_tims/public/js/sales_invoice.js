@@ -1,42 +1,11 @@
 frappe.ui.form.on("Sales Invoice", {
   refresh: function (frm) {
-    frm.add_custom_button(__("Send to TIMS"), function () {
-      send_to_tims(frm);
-    });
-    // frm.add_custom_button(__("Payload/ QR "), function () {
-    //   frappe.call({
-    //     method: "aqiq_tims.services.rest.send_request",
-    //     args: {
-         
-    //       invoice: frm.doc.name,
-    //     },
-    //     freeze: true,
-    //     freeze_message: __("Generating QR Code..."),
-
-    //     callback: function (r) {
-    //       if (!r.message) return;
-
-    //       frm.doc.kra_qr_code = r.message;
-    //       frm.refresh_field("kra_qr_code");
-
-    //       frm.save().then(() => {
-    //         frappe.msgprint({
-    //           title: __("Generated QR Code / Payload"),
-    //           message: `
-    //             <div style="text-align: center;">
-    //                 <img src="${r.message}" 
-    //                      alt="QR Code" 
-    //                      style="max-width: 300px; width: 100%;" />
-    //                 <p>Scan this QR to open the URL</p>
-    //             </div>
-    //         `,
-    //           wide: 1,
-    //         });
-    //       });
-    //     },
-    //   });
-    // });
-
+       if (!frm.doc.custom_sent_to_kra) {
+            frm.add_custom_button(__('Send to TIMS'), function() {
+                send_to_tims(frm);
+            }, __('TIMS'));
+        }
+        
     if (frm.doc.custom_sent_to_kra) {
       var status_color =
         frm.doc.custom_tims_response_code === 0 ? "green" : "red";
