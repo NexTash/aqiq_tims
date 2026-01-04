@@ -191,7 +191,7 @@ def calculate_tax(item, tax_category, total_amount=0.0):
     tax_amount = round(taxable_amount * (tax_rate / 100), 2)
 
 
-    item_rate = (tax_amount + taxable_amount + discount) / qty
+    item_rate = (tax_amount + taxable_amount ) / qty
     new_item = {
         "productCode": product_code,
         "productDesc": item.item_name,
