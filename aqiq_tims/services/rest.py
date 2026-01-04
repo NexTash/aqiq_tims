@@ -6,7 +6,6 @@ from frappe.utils import today
 from datetime import datetime
 from aqiq_tims.services.qr import generate_qr_code 
 
-
 @frappe.whitelist()
 def send_request(invoice):
     try:
@@ -53,14 +52,13 @@ def build_payload(doc, device_setup):
     items = []
 
     for item in invoice_items:
-        new_item, taxable_amount, tax_amount = calculate_tax(item, tax_category, doc.total)
-        vat_values = update_vat_values(vat_values, tax_category, taxable_amount, tax_amount)
+        new_item, net_amount, tax_amount, gross_after_discount = calculate_tax(item, tax_category, doc.total)
+             
+        vat_values = update_vat_values(vat_values, tax_category, net_amount, tax_amount)
         items.append(new_item)
-
 
     payload = create_payload(doc, vat_values, items, payment_method, customer_pin, till_no, rct_no)
     return payload
-
 
 
 def get_invoice_items(invoice):
@@ -126,6 +124,7 @@ def calculate_discount(item, total_amount):
         filters={
             "title": latest_rule_title,
             "selling": 1,
+            "disable": 0,
         },
         fields=["name", "title", "min_amt", "max_amt", "discount_percentage"],
         order_by="min_amt asc"
@@ -160,20 +159,17 @@ def calculate_discount(item, total_amount):
     return round(discount_amount, 2)
 
 def calculate_tax(item, tax_category, total_amount=0.0):
-    
     if tax_category == "16% VAT":
         tax_rate = 16.0
     else:  
         tax_rate = 0.0
-    
-    tax_value = 1 + (tax_rate / 100)
     
     qty = float(item.qty or 1.0)
     base_net_rate = float(item.rate or 0)
     unit_price = round(base_net_rate, 2)
     
     discount = calculate_discount(item, total_amount)
-
+    
     taxtype = 16 if tax_category == "16% VAT" else 0
 
     if tax_category == "Exempt":
@@ -185,59 +181,59 @@ def calculate_tax(item, tax_category, total_amount=0.0):
             product_code = "0001.12.00"
         else:
             product_code = item.item_code
-            
+    
+    gross_after_discount = round(unit_price * qty - discount, 2)
+    
+    # Split into net and tax
+    if tax_rate > 0:
+        net_amount = round(gross_after_discount / (1 + tax_rate / 100), 2)
+        tax_amount = round(gross_after_discount - net_amount, 2)
+    else:
+        net_amount = gross_after_discount
+        tax_amount = 0.0
 
-    taxable_amount = round(unit_price * qty - discount, 2)
-    tax_amount = round(taxable_amount * (tax_rate / 100), 2)
-
-
-    item_rate = (tax_amount + taxable_amount ) / qty
     new_item = {
         "productCode": product_code,
         "productDesc": item.item_name,
         "quantity": round(qty, 2),
-        "unitPrice": round(item_rate, 2),
+        "unitPrice": round(unit_price, 2),
         "discount": round(discount, 2),
         "taxtype": taxtype,  
     }
 
-    return new_item, taxable_amount, tax_amount
-
+    return new_item, net_amount, tax_amount, gross_after_discount
 
 
 def get_hs_code(tax_type):
- 
-    # frappe.throw(f"{tax_type}")
     if tax_type == "Exempt":
         return "0001.12.00"
     else:
         return "0022.12.00"
     return "" 
 
-def update_vat_values(vat_values, tax_category, taxable_amount, tax_amount):
+def update_vat_values(vat_values, tax_category, net_amount, tax_amount):
     if tax_category == "16% VAT":
-        vat_values["VAT_A_NET"] += taxable_amount
+        vat_values["VAT_A_NET"] += net_amount
         vat_values["VAT_A"] += tax_amount
     elif tax_category == "Exempt":
-        vat_values["VAT_E_NET"] += taxable_amount
+        vat_values["VAT_E_NET"] += net_amount
         vat_values["VAT_E"] += tax_amount
     elif tax_category == "8% VAT":
-        vat_values["VAT_B_NET"] += taxable_amount
+        vat_values["VAT_B_NET"] += net_amount
         vat_values["VAT_B"] += tax_amount
     elif tax_category == "10% VAT":
-        vat_values["VAT_C_NET"] += taxable_amount
+        vat_values["VAT_C_NET"] += net_amount
         vat_values["VAT_C"] += tax_amount
     elif tax_category == "2% VAT":
-        vat_values["VAT_D_NET"] += taxable_amount
+        vat_values["VAT_D_NET"] += net_amount
         vat_values["VAT_D"] += tax_amount
     elif tax_category == "Zero Rated":
-        vat_values["VAT_E_NET"] += taxable_amount
+        vat_values["VAT_E_NET"] += net_amount
         vat_values["VAT_E"] += tax_amount
 
     return vat_values
 
 def create_payload(doc, vat_values, items, payment_method, customer_pin, till_no, rct_no):
-    
     payload_type = "sales" if not doc.is_return else "refund"
     cuin = ""
     original_payload_str = ""
@@ -262,34 +258,7 @@ def create_payload(doc, vat_values, items, payment_method, customer_pin, till_no
         
         return submitted_payload
 
-    vat_total = round(
-        vat_values["VAT_A_NET"] + vat_values["VAT_A"] +
-        vat_values["VAT_B_NET"] + vat_values["VAT_B"] +
-        vat_values["VAT_C_NET"] + vat_values["VAT_C"] +
-        vat_values["VAT_D_NET"] + vat_values["VAT_D"] +
-        vat_values["VAT_E_NET"] + vat_values["VAT_E"] +
-        vat_values["VAT_F_NET"] + vat_values["VAT_F"], 2
-    )
-
-    item_total = 0.0
-    for item in items:
-        qty = float(item.get("quantity", 0))
-        price = float(item.get("unitPrice", 0))
-        discount = float(item.get("discount", 0))
-        item_total += (qty * price) - discount
-
-    item_total = round(item_total, 2)
-
-    diff = round(item_total - vat_total, 2)
-
-    if diff != 0:
-        if vat_values["VAT_A_NET"] > 0:
-            vat_values["VAT_A_NET"] = round(float(vat_values["VAT_A_NET"]) + diff, 2)
-        elif vat_values["VAT_E_NET"] > 0:
-            vat_values["VAT_E_NET"] = round(float(vat_values["VAT_E_NET"]) + diff, 2)
-        elif vat_values["VAT_F_NET"] > 0:
-            vat_values["VAT_F_NET"] = round(float(vat_values["VAT_F_NET"]) + diff, 2)
-
+    # Calculate final total (Net + Tax from all items)
     final_total = round(
         vat_values["VAT_A_NET"] + vat_values["VAT_A"] +
         vat_values["VAT_B_NET"] + vat_values["VAT_B"] +
