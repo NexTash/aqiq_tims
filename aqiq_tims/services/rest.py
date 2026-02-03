@@ -105,6 +105,34 @@ def initialize_vat_values():
         "VAT_F": 0,
     }
 
+
+def get_today_exchange_rate(from_currency= "USD", to_currency="KES"):
+    exchange_rate = frappe.db.get_value(
+        "Currency Exchange",
+        {
+            "from_currency": from_currency,
+            "to_currency": to_currency,
+            "date": today(),
+            "for_selling": 1
+        },
+        "exchange_rate"
+    )
+
+    if not exchange_rate:
+        frappe.msgprint(
+            msg=(
+                f"Today's selling exchange rate ({from_currency} → {to_currency}) "
+                f"is not defined in Currency Exchange."
+            ),
+            title="Exchange Rate Missing",
+            indicator="red",
+        )
+        frappe.throw("Missing selling exchange rate for today")
+
+    return float(exchange_rate)
+
+
+
 def calculate_discount(item, total_amount):
 
     latest_rule_title = frappe.db.get_value(
@@ -158,15 +186,26 @@ def calculate_discount(item, total_amount):
     
     return round(discount_amount, 2)
 
+
+
 def calculate_tax(item, tax_category, total_amount=0.0):
+
     if tax_category == "16% VAT":
         tax_rate = 16.0
-    else:  
+    else:
         tax_rate = 0.0
-    
+
+    if tax_rate != 16.0:
+        exchange_rate = get_today_exchange_rate(from_currency="USD", to_currency="KES")
+        base_net_rate = float(item.rate or 0) * exchange_rate
+        unit_price = round(base_net_rate, 2)
+    else:
+        base_net_rate = float(item.rate or 0)
+        unit_price = float(item.rate or 0)  
+
     qty = float(item.qty or 1.0)
-    base_net_rate = float(item.rate or 0)
-    unit_price = round(base_net_rate, 2)
+
+  
     
     discount = calculate_discount(item, total_amount)
     
@@ -183,8 +222,7 @@ def calculate_tax(item, tax_category, total_amount=0.0):
             product_code = item.item_code
     
     gross_after_discount = round(unit_price * qty - discount, 2)
-    
-    # Split into net and tax
+
     if tax_rate > 0:
         net_amount = round(gross_after_discount / (1 + tax_rate / 100), 2)
         tax_amount = round(gross_after_discount - net_amount, 2)
@@ -297,6 +335,7 @@ def create_payload(doc, vat_values, items, payment_method, customer_pin, till_no
 
 
 def send_payload(payload, invoice, doc):
+
     try:
         device_setup = frappe.get_single('TIMS Device Setup')
         response = requests.post(
