@@ -105,33 +105,30 @@ def initialize_vat_values():
         "VAT_F": 0,
     }
 
-
-def get_today_exchange_rate(from_currency= "USD", to_currency="KES"):
+def get_exchange_rate(from_currency="USD", to_currency="KES"):
     exchange_rate = frappe.db.get_value(
         "Currency Exchange",
         {
             "from_currency": from_currency,
             "to_currency": to_currency,
-            "date": today(),
             "for_selling": 1
         },
-        "exchange_rate"
+        "exchange_rate",
+        order_by="date desc"
     )
 
     if not exchange_rate:
         frappe.msgprint(
             msg=(
-                f"Today's selling exchange rate ({from_currency} → {to_currency}) "
-                f"is not defined in Currency Exchange."
+                f"Selling exchange rate ({from_currency} → {to_currency}) "
+                "is not defined in Currency Exchange."
             ),
             title="Exchange Rate Missing",
             indicator="red",
         )
-        frappe.throw("Missing selling exchange rate for today")
+        frappe.throw("Missing selling exchange rate")
 
     return float(exchange_rate)
-
-
 
 def calculate_discount(item, total_amount):
 
