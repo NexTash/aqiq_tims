@@ -21,7 +21,7 @@ def send_request(invoice):
             else:
                 frappe.msgprint(
                     msg="Invoice Posting Date Must be Today's Date",
-                    title="Error Message",get_today_exchange_rate
+                    title="Error Message",get_exchange_rate
                     indicator="red",
                 )
         else:
