@@ -21,7 +21,7 @@ def send_request(invoice):
             else:
                 frappe.msgprint(
                     msg="Invoice Posting Date Must be Today's Date",
-                    title="Error Message",
+                    title="Error Message",get_today_exchange_rate
                     indicator="red",
                 )
         else:
@@ -193,7 +193,7 @@ def calculate_tax(item, tax_category, total_amount=0.0):
         tax_rate = 0.0
 
     if tax_rate != 16.0:
-        exchange_rate = get_today_exchange_rate(from_currency="USD", to_currency="KES")
+        exchange_rate = get_exchange_rate(from_currency="USD", to_currency="KES")
         base_net_rate = float(item.rate or 0) * exchange_rate
         unit_price = round(base_net_rate, 2)
     else:
