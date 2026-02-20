@@ -21,7 +21,7 @@ def send_request(invoice):
             else:
                 frappe.msgprint(
                     msg="Invoice Posting Date Must be Today's Date",
-                    title="Error Message",get_exchange_rate
+                    title="Error Message",
                     indicator="red",
                 )
         else:
@@ -130,7 +130,7 @@ def get_exchange_rate(from_currency="USD", to_currency="KES"):
 
     return float(exchange_rate)
 
-def calculate_discount(item, total_amount):
+def get_item_discount(item, total_amount):
 
     latest_rule_title = frappe.db.get_value(
         "Pricing Rule",
@@ -184,7 +184,6 @@ def calculate_discount(item, total_amount):
     return round(discount_amount, 2)
 
 
-
 def calculate_tax(item, tax_category, total_amount=0.0):
 
     if tax_category == "16% VAT":
@@ -192,20 +191,19 @@ def calculate_tax(item, tax_category, total_amount=0.0):
     else:
         tax_rate = 0.0
 
-    if tax_rate != 16.0:
+    if tax_rate == 16.0:
+        unit_price = round(float(item.rate or 0), 2)
+        item_discount = get_item_discount(item, total_amount)
+        discount = round(item_discount, 2)
+    else:
         exchange_rate = get_exchange_rate(from_currency="USD", to_currency="KES")
         base_net_rate = float(item.rate or 0) * exchange_rate
         unit_price = round(base_net_rate, 2)
-    else:
-        base_net_rate = float(item.rate or 0)
-        unit_price = float(item.rate or 0)  
+        item_discount = get_item_discount(item, total_amount)
+        discount = round(item_discount * exchange_rate, 2)
 
     qty = float(item.qty or 1.0)
 
-  
-    
-    discount = calculate_discount(item, total_amount)
-    
     taxtype = 16 if tax_category == "16% VAT" else 0
 
     if tax_category == "Exempt":
@@ -217,7 +215,7 @@ def calculate_tax(item, tax_category, total_amount=0.0):
             product_code = "0001.12.00"
         else:
             product_code = item.item_code
-    
+
     gross_after_discount = round(unit_price * qty - discount, 2)
 
     if tax_rate > 0:
@@ -233,7 +231,7 @@ def calculate_tax(item, tax_category, total_amount=0.0):
         "quantity": round(qty, 2),
         "unitPrice": round(unit_price, 2),
         "discount": round(discount, 2),
-        "taxtype": taxtype,  
+        "taxtype": taxtype,
     }
 
     return new_item, net_amount, tax_amount, gross_after_discount
